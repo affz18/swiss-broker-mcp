@@ -27,3 +27,12 @@ ACQUISITION_DISCLAIMER = (
     "werden (revDSG/nDSG fuer Datenverarbeitung, UWG Art. 3 Abs. 1 lit. o "
     "fuer Massenwerbung, Opt-out-Recht des Empfaengers)."
 )
+
+NEIGHBORHOOD_DISCLAIMER = (
+    "Profil-Daten sind regionale Annaeherungen aus oeffentlichen Quellen "
+    "(BFS, ESTV) Stichdatum 2024-2025. Demografie-Werte sind kantonale "
+    "Mittelwerte (nicht gemeindespezifisch), Steuer-Multiplier ist "
+    "gemeindespezifisch wo vorhanden, sonst kantonaler Mittelwert. Fuer "
+    "rechtsverbindliche Informationen direkt bei der Wohngemeinde anfragen. "
+    "Werte sind als Orientierung im Maklergespraech gedacht."
+)

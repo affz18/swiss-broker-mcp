@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 from fastmcp import FastMCP
 
 from src.tools.acquisition import get_acquisition_email_context
+from src.tools.neighborhood import get_neighborhood_profile
 from src.tools.valuation import valuate_property
 
 # .env lokal laden (Cloud Run injiziert env vars direkt).
@@ -62,7 +63,7 @@ mcp: FastMCP = FastMCP(
 # --- Tool-Registrierung ---
 mcp.tool()(valuate_property)
 mcp.tool()(get_acquisition_email_context)
-# TODO Step 4: mcp.tool()(get_neighborhood_profile)
+mcp.tool()(get_neighborhood_profile)
 
 
 def main() -> None:

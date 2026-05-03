@@ -99,8 +99,118 @@ NATIONAL_YOY_CHANGE_PERCENT = 3.0
 NATIONAL_VACANCY_RATE_PERCENT = 1.1
 
 
+# --- Demografische + Miet-Daten fuer get_neighborhood_profile ---
+#
+# Quellen-Approximationen (Stichdatum 2024):
+# - Population: BFS STATPOP (Staendige Wohnbevoelkerung 31.12.2023)
+# - Mieten: BFS Mietpreisstrukturerhebung
+# - Avg Age: BFS Altersstruktur Bevoelkerung
+# - Avg Household Size: BFS Haushaltsgroessen
+# - Median Income: BFS HABE / Steuerstatistik (Brutto-Einkommen Haushalt)
+DEMOGRAPHICS_SOURCE_LABEL = (
+    "BFS STATPOP / Mietpreisstrukturerhebung / HABE 2024 (Annaeherungen, "
+    "kantonale Mittelwerte; Population pro Gemeinde)"
+)
+
+
+# Population pro Gemeinde (Stichdatum 2024, gerundet).
+# Schluessel ist der Gemeindename wie in swiss_zip._ZIP_TABLE.
+_POPULATION_BY_MUNICIPALITY: dict[str, int] = {
+    "Zuerich": 430_000,
+    "Winterthur": 117_000,
+    "Bern": 134_000,
+    "Biel/Bienne": 56_000,
+    "Gstaad": 7_000,  # Saanen
+    "Luzern": 83_000,
+    "Basel": 173_000,
+    "Liestal": 14_000,
+    "Genf": 203_000,
+    "Lausanne": 142_000,
+    "Montreux": 26_000,
+    "Aigle": 11_000,
+    "Zug": 31_000,
+    "Cham": 17_000,
+    "Sarnen": 10_300,
+    "Stans": 8_500,
+    "Schwyz": 15_500,
+    "Brunnen": 9_000,  # Ingenbohl
+    "Altdorf": 9_500,
+    "St. Gallen": 76_000,
+    "Appenzell": 6_000,
+    "Herisau": 16_000,
+    "Schaffhausen": 36_000,
+    "Frauenfeld": 26_000,
+    "Glarus": 12_500,
+    "Aarau": 22_000,
+    "Baden": 20_000,
+    "Solothurn": 17_000,
+    "Bellinzona": 44_000,
+    "Locarno": 16_500,
+    "Lugano": 63_000,
+    "Chur": 36_000,
+    "St. Moritz": 5_000,
+    "Davos": 11_000,
+    "Sion": 35_000,
+    "Zermatt": 5_500,
+    "Brig": 13_500,
+    "Freiburg": 38_000,
+    "Neuenburg": 33_000,
+    "Delsberg": 13_000,
+}
+
+
+# Median-Mietpreis CHF pro m2 pro Monat (Wohnungen, Bestand + Neu),
+# kantonsweise. Quelle: BFS Mietpreisstrukturerhebung 2024 (Annaeherung).
+_MEDIAN_RENT_CHF_PER_M2: dict[str, float] = {
+    "ZH": 20.50, "GE": 22.00, "ZG": 22.50, "BS": 17.00, "BL": 16.00,
+    "VD": 18.00, "BE": 14.50, "LU": 17.00, "SZ": 18.00, "NW": 17.00,
+    "OW": 16.00, "UR": 13.50, "GR": 16.00, "TI": 14.50, "VS": 14.00,
+    "FR": 15.00, "NE": 13.00, "JU": 11.50, "SO": 13.50, "AG": 15.50,
+    "SG": 14.50, "TG": 13.50, "SH": 13.50, "AR": 12.50, "AI": 12.50,
+    "GL": 12.00,
+}
+
+# Durchschnittsalter pro Kanton (BFS 2024, Annaeherung).
+_AVG_AGE: dict[str, float] = {
+    "ZH": 41.5, "GE": 41.0, "ZG": 41.5, "BS": 42.5, "BL": 43.5,
+    "VD": 41.5, "BE": 43.5, "LU": 42.0, "SZ": 42.5, "NW": 43.0,
+    "OW": 42.0, "UR": 43.5, "GR": 44.0, "TI": 45.5, "VS": 43.5,
+    "FR": 41.0, "NE": 43.0, "JU": 43.5, "SO": 43.0, "AG": 42.5,
+    "SG": 42.5, "TG": 42.5, "SH": 44.0, "AR": 44.5, "AI": 41.0,
+    "GL": 43.0,
+}
+
+# Durchschnittliche Haushaltsgroesse (Personen) pro Kanton, Annaeherung 2024.
+_AVG_HOUSEHOLD_SIZE: dict[str, float] = {
+    "ZH": 2.1, "GE": 2.2, "ZG": 2.3, "BS": 1.9, "BL": 2.2,
+    "VD": 2.2, "BE": 2.1, "LU": 2.3, "SZ": 2.4, "NW": 2.4,
+    "OW": 2.4, "UR": 2.3, "GR": 2.1, "TI": 2.2, "VS": 2.3,
+    "FR": 2.4, "NE": 2.1, "JU": 2.2, "SO": 2.2, "AG": 2.3,
+    "SG": 2.3, "TG": 2.3, "SH": 2.1, "AR": 2.3, "AI": 2.5,
+    "GL": 2.2,
+}
+
+# Median Brutto-Haushaltseinkommen CHF/Jahr pro Kanton, Annaeherung 2024.
+# Quelle: BFS HABE / Steuerstatistik.
+_MEDIAN_HOUSEHOLD_INCOME_CHF: dict[str, int] = {
+    "ZH": 95_000, "GE": 90_000, "ZG": 110_000, "BS": 85_000, "BL": 92_000,
+    "VD": 85_000, "BE": 80_000, "LU": 82_000, "SZ": 95_000, "NW": 95_000,
+    "OW": 78_000, "UR": 75_000, "GR": 78_000, "TI": 75_000, "VS": 72_000,
+    "FR": 80_000, "NE": 73_000, "JU": 70_000, "SO": 80_000, "AG": 88_000,
+    "SG": 80_000, "TG": 82_000, "SH": 80_000, "AR": 78_000, "AI": 75_000,
+    "GL": 75_000,
+}
+
+# Schweizer Median-Haushaltseinkommen 2024 (Brutto, Annaeherung BFS HABE).
+NATIONAL_MEDIAN_HOUSEHOLD_INCOME_CHF = 82_000
+
+
 class CantonNotCoveredError(ValueError):
     """Kanton ist nicht in der BFS-Tabelle hinterlegt."""
+
+
+class MunicipalityNotCoveredError(ValueError):
+    """Gemeinde ist nicht in der Population-Tabelle hinterlegt."""
 
 
 def get_base_price_per_m2(canton: str, property_type: PropertyType) -> int:
@@ -144,3 +254,49 @@ def get_vacancy_rate_percent(canton: str) -> float:
 def covered_cantons() -> list[str]:
     """Liste aller Kantone, fuer die wir Preisdaten haben."""
     return sorted(_BASE_PRICE_PER_M2_CHF.keys())
+
+
+def get_population(municipality: str) -> int:
+    """Bevoelkerungszahl fuer eine Gemeinde (Annaeherung 2024).
+
+    Raises:
+        MunicipalityNotCoveredError: wenn die Gemeinde nicht in der
+            Tabelle ist (typisch wenn die ZIP-Tabelle erweitert wird,
+            ohne hier nachzuziehen).
+    """
+    if municipality not in _POPULATION_BY_MUNICIPALITY:
+        raise MunicipalityNotCoveredError(
+            f"Gemeinde {municipality!r} hat keinen Population-Eintrag in der "
+            f"MVP-Tabelle. Bitte _POPULATION_BY_MUNICIPALITY in bfs.py ergaenzen."
+        )
+    return _POPULATION_BY_MUNICIPALITY[municipality]
+
+
+def get_median_rent_chf_per_m2(canton: str) -> float:
+    if canton not in _MEDIAN_RENT_CHF_PER_M2:
+        raise CantonNotCoveredError(
+            f"Kanton {canton!r} hat keinen Median-Mietpreis-Eintrag."
+        )
+    return _MEDIAN_RENT_CHF_PER_M2[canton]
+
+
+def get_avg_age(canton: str) -> float:
+    if canton not in _AVG_AGE:
+        raise CantonNotCoveredError(f"Kanton {canton!r} hat keinen avg_age-Eintrag.")
+    return _AVG_AGE[canton]
+
+
+def get_avg_household_size(canton: str) -> float:
+    if canton not in _AVG_HOUSEHOLD_SIZE:
+        raise CantonNotCoveredError(
+            f"Kanton {canton!r} hat keinen avg_household_size-Eintrag."
+        )
+    return _AVG_HOUSEHOLD_SIZE[canton]
+
+
+def get_median_household_income_chf(canton: str) -> int:
+    if canton not in _MEDIAN_HOUSEHOLD_INCOME_CHF:
+        raise CantonNotCoveredError(
+            f"Kanton {canton!r} hat keinen Median-Einkommen-Eintrag."
+        )
+    return _MEDIAN_HOUSEHOLD_INCOME_CHF[canton]

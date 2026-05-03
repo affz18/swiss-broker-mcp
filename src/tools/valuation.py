@@ -35,6 +35,7 @@ from src.data_sources.bfs import (
     get_base_price_per_m2,
     get_yoy_change_percent,
 )
+from src.utils.disclaimers import VALUATION_BROKER_NOTES, VALUATION_DISCLAIMER
 from src.utils.swiss_zip import UnknownZipError, lookup_zip
 
 Condition = Literal["renovated", "good", "needs_work"]
@@ -57,19 +58,6 @@ class ValuationResult(TypedDict):
     broker_notes: str
     disclaimer: str
 
-
-_DISCLAIMER = (
-    "Schaetzung basiert auf oeffentlichen Statistiken (BFS, opendata.swiss) "
-    "und ersetzt keine professionelle Schaetzung. Fuer rechtsverbindliche "
-    "Werte ist eine Vor-Ort-Besichtigung durch einen zertifizierten "
-    "Schaetzer erforderlich."
-)
-
-_BROKER_NOTES = (
-    "Fuer eine genaue Bewertung wird eine Vor-Ort-Besichtigung empfohlen. "
-    "Faktoren wie Aussicht, Stockwerk, Nebenkosten, Sanierungsbedarf und "
-    "individuelle Ausstattung sind in dieser Schaetzung NICHT beruecksichtigt."
-)
 
 # Range +/- in Prozent (typische Schwankung in der Schweiz).
 _RANGE_SPREAD_PCT = 0.12
@@ -240,8 +228,8 @@ async def valuate_property(
         data_sources=[DATA_SOURCE_LABEL],
         confidence=_confidence(canton, property_type, rooms, size_m2),
         market_context=_format_market_context(canton_name, yoy_change),
-        broker_notes=_BROKER_NOTES,
-        disclaimer=_DISCLAIMER,
+        broker_notes=VALUATION_BROKER_NOTES,
+        disclaimer=VALUATION_DISCLAIMER,
     )
 
 

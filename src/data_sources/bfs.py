@@ -81,6 +81,24 @@ _YOY_CHANGE_PERCENT: dict[str, float] = {
 }
 
 
+# Leerstandsquote Wohnungen pro Kanton in Prozent (BFS jaehrlich).
+# Plausible Approximation 2024. Schweizer Schnitt liegt bei ~1.0%.
+# Niedrige Werte = enger Markt = relevant fuer Buyer-Akquise.
+_VACANCY_RATE_PERCENT: dict[str, float] = {
+    "ZH": 0.7, "GE": 0.5, "ZG": 0.6, "BS": 1.0, "BL": 1.2,
+    "VD": 0.8, "BE": 1.5, "LU": 1.2, "SZ": 1.0, "NW": 0.9,
+    "OW": 0.8, "UR": 1.5, "GR": 1.0, "TI": 1.5, "VS": 2.0,
+    "FR": 1.2, "NE": 2.5, "JU": 3.0, "SO": 2.0, "AG": 1.8,
+    "SG": 2.0, "TG": 1.8, "SH": 1.5, "AR": 1.8, "AI": 1.5,
+    "GL": 2.5,
+}
+
+# Schweiz-weiter Mittelwert (Fallback fuer unbekannte Kantone /
+# unbekannte PLZ in Tools, die "graceful fallback" machen).
+NATIONAL_YOY_CHANGE_PERCENT = 3.0
+NATIONAL_VACANCY_RATE_PERCENT = 1.1
+
+
 class CantonNotCoveredError(ValueError):
     """Kanton ist nicht in der BFS-Tabelle hinterlegt."""
 
@@ -112,6 +130,15 @@ def get_yoy_change_percent(canton: str) -> float:
     Positiver Wert = Preise gestiegen. Default 0.0 bei unbekanntem Kanton.
     """
     return _YOY_CHANGE_PERCENT.get(canton, 0.0)
+
+
+def get_vacancy_rate_percent(canton: str) -> float:
+    """Wohnungs-Leerstandsquote in Prozent fuer einen Kanton.
+
+    Niedriger Wert = enger Markt. Default = nationaler Mittelwert
+    bei unbekanntem Kanton (Fallback fuer Tools mit graceful fallback).
+    """
+    return _VACANCY_RATE_PERCENT.get(canton, NATIONAL_VACANCY_RATE_PERCENT)
 
 
 def covered_cantons() -> list[str]:

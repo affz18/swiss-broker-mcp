@@ -1,0 +1,86 @@
+name: deploy
+
+# Deploy nur auf Push to main. Tests in test.yml laufen vorher als
+# separater Workflow (oder verifiziere lokal vor Merge).
+on:
+  push:
+    branches: [main]
+  # Manueller Trigger fuer Re-Deploy ohne Code-Change.
+  workflow_dispatch:
+
+# Sequenzieller Deploy - kein Race zwischen zwei Pushes.
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+env:
+  GCP_REGION: europe-west6
+  ARTIFACT_REPO: swiss-broker-mcp
+  CLOUD_RUN_SERVICE: swiss-broker-mcp
+  IMAGE_NAME: server
+
+# Workload Identity Federation: GitHub-OIDC-Token statt JSON-Key.
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Build container image
+        env:
+          IMAGE_URI: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}
+        run: |
+          docker build \
+            --tag "${IMAGE_URI}:${GITHUB_SHA}" \
+            --tag "${IMAGE_URI}:latest" \
+            .
+
+      - name: Push container image
+        env:
+          IMAGE_URI: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}
+        run: |
+          docker push "${IMAGE_URI}:${GITHUB_SHA}"
+          docker push "${IMAGE_URI}:latest"
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.CLOUD_RUN_SERVICE }}
+          region: ${{ env.GCP_REGION }}
+          image: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          # Oeffentlich zugaenglich (MCP-Clients brauchen kein Auth fuer MVP).
+          flags: |
+            --allow-unauthenticated
+            --port=8080
+            --cpu=1
+            --memory=512Mi
+            --min-instances=0
+            --max-instances=5
+            --timeout=300
+            --set-env-vars=LOG_LEVEL=INFO
+
+      - name: Show deployed URL
+        run: echo "Service deployed at ${{ steps.deploy.outputs.url }}"

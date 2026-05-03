@@ -121,7 +121,7 @@ Fuege folgendes zu deiner `claude_desktop_config.json` hinzu:
 {
   "mcpServers": {
     "swiss-broker": {
-      "url": "https://swiss-broker-mcp-<TODO-HASH>-oa.a.run.app/sse"
+      "url": "https://swiss-broker-mcp-<TODO-HASH>-oa.a.run.app/mcp"
     }
   }
 }
@@ -170,7 +170,9 @@ Deployment via GitHub Actions auf Push nach `main`.
 | `GCP_SERVICE_ACCOUNT` | Service-Account-E-Mail mit Cloud-Run-Deploy-Permissions |
 
 Wir nutzen **Workload Identity Federation** statt JSON-Keys -
-sicherer und ohne manuelle Secret-Rotation.
+sicherer und ohne manuelle Secret-Rotation. Die einmaligen
+`gcloud`-Befehle (Artifact Registry, Service Account + Rollen, WIF
+Pool/Provider) stehen in [docs/SETUP_GCP.md](./docs/SETUP_GCP.md).
 
 ---
 

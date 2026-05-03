@@ -1,11 +1,14 @@
 """FastMCP Server Entry Point.
 
-Registriert alle Tools und startet den Server im SSE-Transport (HTTP),
-sodass Cloud Run ihn auf $PORT bedienen kann. Claude Desktop und andere
-MCP-Clients verbinden sich per `https://<host>/sse`.
+Registriert alle MCP-Tools und startet den Server im Streamable-HTTP-
+Transport. MCP-Clients (Claude Desktop, Cursor, ChatGPT) verbinden sich
+auf `https://<host>/mcp`.
 
-Logging: structlog im JSON-Format - Cloud Run Logging parst das
-automatisch in strukturierte Felder.
+Zusaetzlich exponiert der Server einen `/health`-Endpoint fuer Cloud-
+Run-Probes (Liveness/Readiness): GET /health -> 200 {"status": "ok"}.
+
+Logging: structlog im JSON-Format auf stderr - Cloud Run Logging parst
+das automatisch in strukturierte Felder.
 """
 
 from __future__ import annotations
@@ -17,6 +20,8 @@ import sys
 import structlog
 from dotenv import load_dotenv
 from fastmcp import FastMCP
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from src.tools.acquisition import get_acquisition_email_context
 from src.tools.neighborhood import get_neighborhood_profile
@@ -60,17 +65,34 @@ mcp: FastMCP = FastMCP(
     ),
 )
 
+
 # --- Tool-Registrierung ---
 mcp.tool()(valuate_property)
 mcp.tool()(get_acquisition_email_context)
 mcp.tool()(get_neighborhood_profile)
 
 
+# --- Custom HTTP routes (ausserhalb des MCP-Protokolls) ---
+@mcp.custom_route("/health", methods=["GET"])
+async def health(request: Request) -> JSONResponse:
+    """Cloud-Run Health-Probe Endpoint.
+
+    Bewusst minimal: kein Datenbank-Ping, kein externer API-Call.
+    Wenn der Python-Prozess Antworten kann, ist der Container "ok".
+    Detailliertere Health-Logik (z.B. BFS-API-Reachability) kommt mit
+    v0.2 wenn echte Live-APIs angebunden sind.
+
+    Starlette uebergibt `request` per Konvention - aktuell unbenutzt.
+    """
+    del request
+    return JSONResponse({"status": "ok"})
+
+
 def main() -> None:
     port = int(os.getenv("PORT", "8080"))
-    log.info("server.starting", port=port, transport="sse")
-    # SSE-Transport: HTTP-Endpoint /sse fuer MCP-Clients (Claude Desktop u.a.).
-    mcp.run(transport="sse", host="0.0.0.0", port=port)
+    log.info("server.starting", port=port, transport="http")
+    # Streamable-HTTP-Transport: MCP-Clients verbinden auf /mcp.
+    mcp.run(transport="http", host="0.0.0.0", port=port)
 
 
 if __name__ == "__main__":

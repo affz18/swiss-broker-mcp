@@ -1,0 +1,38 @@
+# Tests, Docs, CI, Local Tooling - werden nicht im Container gebraucht.
+tests/
+docs/
+.github/
+.git/
+.gitignore
+
+# Python build/cache artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Env files (NEVER ship secrets in the image)
+.env
+.env.*
+
+# Build configs not needed at runtime (we COPY only requirements.txt + src/)
+pyproject.toml
+README.md
+CHECKLIST_GO_PUBLIC.md
+LICENSE
+.dockerignore
+Dockerfile

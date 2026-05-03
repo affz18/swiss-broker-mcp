@@ -18,6 +18,9 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
+    # respx: HTTP mocking fuer httpx in Tests. Aktuell nicht in Tests
+    # genutzt (alle Tools nutzen embedded Daten), aktiviert ab Tool 4+
+    # wenn Live-API-Calls (BFS pxweb / opendata.swiss) gemockt werden.
     "respx>=0.21.0",
     "mypy>=1.10.0",
     "ruff>=0.5.0",

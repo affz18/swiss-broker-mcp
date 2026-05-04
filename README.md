@@ -44,7 +44,7 @@ Tools.
 
 ## Was es macht
 
-Drei MVP-Tools, alle auf oeffentlichen Schweizer Daten (BFS, ESTV).
+Vier MVP-Tools, alle auf oeffentlichen Schweizer Daten (BFS, ESTV).
 
 ### 1. `valuate_property` - Immobilien bewerten
 
@@ -102,7 +102,42 @@ Asymmetrische Strategie: `target_audience: "potential_seller"` fokussiert
 auf Wertsteigerung + kostenlose Bewertung, `"potential_buyer"` auf knappes
 Angebot + Off-market-Pipeline.
 
-### 3. `get_neighborhood_profile` - Gemeinde-Profil
+### 3. `compare_locations` - Gemeinden direkt vergleichen
+
+> *"Vergleich Zug und Luzern fuer einen Kunden der zwischen den beiden waehlt."*
+
+Statt vager Zusammenfassung: **quantifizierte Deltas + per-Dimension-
+Sieger + Narrative in Maklersprache** - bereit fuers Beratungsgespraech.
+
+```json
+{
+  "locations": [
+    { "zip_code": "6300", "municipality": "Zug", "tax_multiplier": 0.55, "tax_rank_canton": "guenstig", "median_rent_chf_per_m2": 22.5, "median_household_income_chf": 110000, ... },
+    { "zip_code": "6003", "municipality": "Luzern", "tax_multiplier": 1.75, "tax_rank_canton": "mittel", "median_rent_chf_per_m2": 17.0, "median_household_income_chf": 82000, ... }
+  ],
+  "winners": {
+    "lowest_tax_multiplier": "6300",
+    "lowest_rent": "6003",
+    "highest_income": "6300",
+    "lowest_vacancy": "6300",
+    "largest_population": "6003"
+  },
+  "deltas": [
+    { "delta_text": "Zug ist stark steueroptimaler als Luzern (69% guenstiger, Multiplier 0.55 vs 1.75).", "magnitude": "stark", ... },
+    { "delta_text": "Luzern ist deutlich guenstiger bei der Miete als Zug (24% tiefer, 17.00 CHF/m2 vs 22.50 CHF/m2).", ... },
+    { "delta_text": "Zug liegt stark hoeher beim Median-Haushaltseinkommen als Luzern (+34%, 110'000 CHF vs 82'000 CHF).", ... },
+    { "delta_text": "Zug hat einen stark engeren Wohnungsmarkt als Luzern (Leerstand 0.6% vs 1.2%). Enger Markt = weniger Angebot, schnelleres Handeln noetig.", ... }
+  ],
+  "narrative_summary": "Zug ist stark steueroptimaler als Luzern (69% guenstiger). Zug hat einen stark engeren Wohnungsmarkt als Luzern. Fazit: Trade-off zwischen Steuerfuss und Marktdruck - die Wahl haengt davon ab, welche Dimension dem Kunden wichtiger ist.",
+  ...
+}
+```
+
+Akzeptiert 2-5 PLZ. Genau das Tool das du im Kundengespraech vor dir
+auf dem Tisch haben willst, wenn Familie Mueller zwischen drei Gemeinden
+schwankt.
+
+### 4. `get_neighborhood_profile` - Gemeinde-Profil
 
 > *"Wie ist die Gemeinde 6060? Steuerfuss, Demografie, Mieten?"*
 
@@ -160,7 +195,6 @@ folgt sobald die offizielle MCP-Unterstuetzung dieser Clients stabil ist.
 ## Roadmap
 
 ### v0.2 (geplant)
-- `compare_locations` - zwei oder mehr Gemeinden direkt vergleichen
 - `get_expose_context` - Daten fuer Verkaufs-Exposes
 - `generate_market_report_data` - strukturierte Markt-Reports
 - Live-Anbindung an die BFS pxweb-API (statt embedded Annaeherungen)
@@ -173,6 +207,8 @@ folgt sobald die offizielle MCP-Unterstuetzung dieser Clients stabil ist.
 - ✓ Vollstaendige PLZ-Tabelle (alle 3362 Schweizer PLZ, alle 26
   Kantone) als embedded JSON-Resource. Reproduzierbar via
   `scripts/build_zip_table.py`.
+- ✓ `compare_locations` - quantifizierter 2-5-Gemeinden-Vergleich mit
+  Per-Dimension-Sieger und Maklersprache-Narrative.
 
 ### v0.3 (Idee)
 - OSM Overpass fuer `highway_access_km` und konkrete OeV-Verbindungen

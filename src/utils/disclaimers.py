@@ -36,3 +36,13 @@ NEIGHBORHOOD_DISCLAIMER = (
     "rechtsverbindliche Informationen direkt bei der Wohngemeinde anfragen. "
     "Werte sind als Orientierung im Maklergespraech gedacht."
 )
+
+COMPARISON_DISCLAIMER = (
+    "Vergleich basiert auf den gleichen oeffentlichen Quellen (BFS, ESTV) "
+    "wie das Einzelprofil. Die Deltas sind faktisch korrekt fuer die "
+    "verglichenen Dimensionen, ersetzen aber keine individuelle "
+    "Beratung: Kriterien wie Wohnumgebung, Schulwahl, persoenliche "
+    "Vorlieben oder konkrete Liegenschafts-Verfuegbarkeit sind nicht "
+    "Teil der Datengrundlage. Werte sind als Diskussionsgrundlage im "
+    "Beratungsgespraech gedacht."
+)

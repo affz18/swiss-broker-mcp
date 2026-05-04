@@ -24,6 +24,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from src.tools.acquisition import get_acquisition_email_context
+from src.tools.comparison import compare_locations
 from src.tools.neighborhood import get_neighborhood_profile
 from src.tools.valuation import valuate_property
 
@@ -70,6 +71,7 @@ mcp: FastMCP = FastMCP(
 mcp.tool()(valuate_property)
 mcp.tool()(get_acquisition_email_context)
 mcp.tool()(get_neighborhood_profile)
+mcp.tool()(compare_locations)
 
 
 # --- Custom HTTP routes (ausserhalb des MCP-Protokolls) ---

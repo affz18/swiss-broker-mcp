@@ -25,7 +25,9 @@ async def test_happy_sarnen_spec_example() -> None:
     assert p["canton_code"] == "OW"
 
     # Population (Spec-Beispiel: 10'281; wir erlauben Approximation)
-    assert 9_000 < p["population"] < 12_000
+    pop = p["population"]
+    assert pop is not None
+    assert 9_000 < pop < 12_000
 
     # Steuern: Sarnen hat ZIP-Override 2.95 (matched Spec exakt)
     assert p["tax_multiplier"] == 2.95
@@ -55,6 +57,9 @@ async def test_happy_sarnen_spec_example() -> None:
     assert "unter" in demo["income_context"]
     assert "Schweizer Median" in demo["income_context"]
 
+    # data_quality
+    assert p["data_quality"] == "full"
+
     # Quellen + Disclaimer
     assert any("BFS" in src for src in p["data_sources"])
     assert any("ESTV" in src for src in p["data_sources"])
@@ -70,7 +75,9 @@ async def test_happy_zuerich() -> None:
     assert p["municipality"] == "Zuerich"
     assert p["canton"] == "Zuerich"
     assert p["canton_code"] == "ZH"
-    assert p["population"] > 100_000
+    pop = p["population"]
+    assert pop is not None
+    assert pop > 100_000
     assert p["tax_rank_canton"] == "mittel"
     assert p["tax_multiplier"] == 1.19  # ZIP-Override
     # Stadt mit >100k Einwohner -> "Sehr gute OeV-Anbindung"
@@ -129,3 +136,50 @@ async def test_population_drives_school_descriptor() -> None:
 
     # Zuerich: alle drei Schulstufen
     assert "Gymnasium / Mittelschule" in zuerich["infrastructure"]["schools"]
+
+
+@pytest.mark.asyncio
+async def test_partial_mode_for_unknown_municipality() -> None:
+    """Bekannte PLZ aber Gemeinde nicht in Population-Tabelle -> data_quality='partial'.
+
+    6010 = Kriens (LU): existiert im PLZ-Register, aber Population
+    nicht in unserer kuratierten ~40er-Tabelle. Soll trotzdem ein
+    valides Profil liefern (kantonale Demografie/Steuern), nur mit
+    population=null und generischen Schul/OeV-Strings.
+    """
+    p = await get_neighborhood_profile(zip_code="6010")
+
+    assert p["municipality"] == "Kriens"
+    assert p["canton_code"] == "LU"
+    assert p["data_quality"] == "partial"
+    assert p["population"] is None
+
+    # Generische Schul-/OeV-Beschreibung
+    schools = p["infrastructure"]["schools"]
+    assert len(schools) == 1
+    assert "Schulverbund" in schools[0] or "Primarschule" in schools[0]
+    assert "variiert" in p["infrastructure"]["public_transport"]
+
+    # Kantonale Daten sind trotzdem vollstaendig
+    assert p["tax_rank_canton"] in ("guenstig", "mittel", "teuer")
+    assert p["vacancy_rate_percent"] > 0
+    assert p["median_rent_chf_per_m2"] > 0
+    assert p["demographics"]["median_household_income_chf"] > 0
+
+
+@pytest.mark.asyncio
+async def test_previously_missing_zips_now_work() -> None:
+    """Smoke-Test: vorher unbekannte PLZ funktionieren jetzt fuer Tool 3.
+
+    Vor v0.2 deckte das Tool nur ~60 PLZ ab; 8003, 4502, 1004 etc.
+    haetten UnknownZipError geworfen. Jetzt: sauberer Lookup.
+    """
+    for zip_code in ["8003", "8005", "4502", "1004", "8302", "3007"]:
+        p = await get_neighborhood_profile(zip_code=zip_code)
+        assert p["zip_code"] == zip_code
+        assert p["municipality"]  # nicht leer
+        assert p["canton_code"] in {
+            "AG", "AI", "AR", "BE", "BL", "BS", "FR", "GE", "GL", "GR",
+            "JU", "LU", "NE", "NW", "OW", "SG", "SH", "SO", "SZ", "TG",
+            "TI", "UR", "VD", "VS", "ZG", "ZH",
+        }

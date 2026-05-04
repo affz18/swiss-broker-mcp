@@ -2,25 +2,35 @@
 
 Aggregiert die fuer ein Maklergespraech wichtigsten Datenpunkte einer
 Gemeinde in EINEM strukturierten Output:
-- Population (BFS STATPOP, gemeindespezifisch)
+
+- Population (BFS STATPOP, gemeindespezifisch wo verfuegbar)
 - Steuerfuss + querkantonaler Steuer-Rang (ESTV)
 - Leerstandsquote + Median-Miete (BFS, kantonal)
 - Demografie: Durchschnittsalter, Haushaltsgroesse, Median-Einkommen
-  inkl. Vergleich zum Schweizer Median (faktisch, kein subjektives
-  Bracket-Label)
-- Infrastruktur: Schulen + OeV (regelbasiert anhand Gemeinde-Groesse,
-  KEIN handkuratierter lokaler Hook fuer MVP)
+  inkl. faktischer Vergleich zum CH-Median
+- Infrastruktur: Schulen + OeV (regelbasiert anhand Gemeinde-Groesse)
 
-Bei unbekannter PLZ: harte UnknownZipError - bei einem Profil-Tool
-waeren nationale Mittelwerte irrefuehrend (anders als im Akquise-
-Tool, wo eine Mail trotzdem schreibbar bleibt).
+Bei unbekannter PLZ: harte UnknownZipError (ein Profil mit nationalen
+Mittelwerten waere irrefuehrend).
+
+Bei bekannter PLZ aber fehlender Gemeinde-Population (kein Eintrag in
+der kuratierten ~40-Gemeinden-Tabelle): graceful fallback - das Tool
+liefert ein vollstaendiges kantonales Profil und signalisiert die
+Einschraenkung via `data_quality: "partial"`. Die Schul-/OeV-
+Heuristik wird in dem Fall durch generischere Strings ersetzt.
+
+TODO (v0.2): Population-Tabelle auf alle ~2147 Schweizer Gemeinden
+ausweiten (BFS STATPOP CSV). Bis dahin: data_quality="partial" fuer
+Gemeinden ausserhalb der MVP-Liste.
 
 TODO (v0.3): Live-Anbindung an OSM Overpass fuer:
 - highway_access_km (echte Distanz zur naechsten Autobahn-Auffahrt)
-- nahe Schulen/OeV-Stops (statt Pauschal-Beschreibung)
+- nahe Schulen / OeV-Stops (statt Pauschal-Beschreibung)
 """
 
 from __future__ import annotations
+
+from typing import Literal
 
 from typing_extensions import TypedDict
 
@@ -37,6 +47,8 @@ from src.data_sources.bfs import (
 from src.data_sources.tax_data import TAX_DATA_SOURCE_LABEL, TaxRank, get_tax_info
 from src.utils.disclaimers import NEIGHBORHOOD_DISCLAIMER
 from src.utils.swiss_zip import UnknownZipError, lookup_zip
+
+DataQuality = Literal["full", "partial"]
 
 
 class InfrastructureInfo(TypedDict):
@@ -56,8 +68,8 @@ class NeighborhoodProfile(TypedDict):
     zip_code: str
     municipality: str
     canton: str  # vollstaendiger Name (z.B. "Obwalden")
-    canton_code: str  # 2-Buchstaben (z.B. "OW") - praktisch fuer Folgeabfragen
-    population: int
+    canton_code: str  # 2-Buchstaben (z.B. "OW")
+    population: int | None  # None bei data_quality="partial"
     tax_multiplier: float
     tax_rank_canton: TaxRank
     tax_multiplier_note: str
@@ -65,6 +77,7 @@ class NeighborhoodProfile(TypedDict):
     median_rent_chf_per_m2: float
     infrastructure: InfrastructureInfo
     demographics: DemographicsInfo
+    data_quality: DataQuality
     data_sources: list[str]
     disclaimer: str
 
@@ -89,12 +102,15 @@ def _build_income_context(canton_median: int, national_median: int) -> str:
     )
 
 
-def _schools_descriptor(population: int) -> list[str]:
+def _schools_descriptor(population: int | None) -> list[str]:
     """Regelbasierte Schul-Liste anhand Gemeinde-Groesse.
 
-    Honest minimum - reale Schulauswahl pro Gemeinde steht bei der
-    Gemeindeverwaltung. Gibt nur die typische Mindestausstattung an.
+    Bei unbekannter Gemeinde-Groesse: ehrlicher Minimal-Default
+    (jede Schweizer Gemeinde hat eine Primarschule oder einen
+    Schulverbund mit Nachbargemeinden).
     """
+    if population is None:
+        return ["Primarschule (oder Schulverbund mit Nachbargemeinden)"]
     schools = ["Primarschule"]
     if population >= 5_000:
         schools.append("Sekundarschule")
@@ -103,13 +119,14 @@ def _schools_descriptor(population: int) -> list[str]:
     return schools
 
 
-def _public_transport_descriptor(population: int) -> str:
-    """Regelbasierter OeV-Descriptor anhand Gemeinde-Groesse.
-
-    Bewusst generisch fuer MVP - eine konkrete Aussage wie 'S-Bahn alle
-    30 Min nach Luzern' braeuchte handkuratierte Daten oder eine
-    Live-OSM/SBB-Anbindung (siehe TODO im Modul-Docstring).
-    """
+def _public_transport_descriptor(population: int | None) -> str:
+    """Regelbasierter OeV-Descriptor anhand Gemeinde-Groesse."""
+    if population is None:
+        return (
+            "OeV-Anbindung variiert je nach Gemeinde - typischerweise Postauto "
+            "und/oder regionale Bus-/Bahnlinien. Fuer konkrete Fahrplaene "
+            "fahrplan.sbb.ch konsultieren."
+        )
     if population >= 100_000:
         return "Sehr gute OeV-Anbindung (Hauptbahnhof, Tram-/Bus-Netz, S-Bahn)."
     if population >= 30_000:
@@ -129,38 +146,24 @@ def _public_transport_descriptor(population: int) -> str:
 async def get_neighborhood_profile(zip_code: str) -> NeighborhoodProfile:
     """Liefert ein vollstaendiges Profil einer Schweizer Gemeinde / PLZ.
 
-    Geeignet fuer Makler-Beratung, Akquise-Vorbereitung und Expose-Daten.
-    Aggregiert oeffentliche Daten (BFS, ESTV) und Infrastruktur-Heuristik
-    in einem strukturierten Output, den der LLM in Beratungsgespraechen
-    oder Email-Texten verwenden kann.
+    Geeignet fuer Makler-Beratung, Akquise-Vorbereitung und Expose-
+    Daten. Aggregiert oeffentliche Daten (BFS, ESTV) und
+    Infrastruktur-Heuristik in einem strukturierten Output.
 
     Args:
         zip_code: 4-stellige Schweizer PLZ (z.B. "6060" fuer Sarnen).
 
     Returns:
-        NeighborhoodProfile mit:
-          - zip_code, municipality, canton (full name), canton_code (2L)
-          - population (gemeindespezifisch, 2024)
-          - tax_multiplier + tax_rank_canton + tax_multiplier_note +
-            stichdatum-Hinweis in data_sources
-          - vacancy_rate_percent (kantonal)
-          - median_rent_chf_per_m2 (kantonal)
-          - infrastructure: schools[], public_transport, highway_access_km
-            (highway_access_km ist fuer MVP None - siehe TODO)
-          - demographics: avg_age, avg_household_size,
-            median_household_income_chf, income_context
-            (faktischer Vergleich zum CH-Median, KEIN subjektives Bracket)
-          - data_sources: alle genutzten Quellen mit Stichdatum
-          - disclaimer
+        NeighborhoodProfile. Wenn `data_quality == "full"`: Population
+        + voll-aufgeloeste Schul-/OeV-Heuristik. Wenn
+        `data_quality == "partial"`: Population ist None, Schul- und
+        OeV-Beschreibungen sind generisch. In beiden Faellen sind
+        kantonale Daten (Steuern, Mieten, Demografie) vollstaendig.
 
     Raises:
-        UnknownZipError: PLZ ist nicht in der MVP-Tabelle. Bewusst kein
-            Fallback - ein Profil mit nationalen Mittelwerten waere
-            irrefuehrend.
-        MunicipalityNotCoveredError: ZIP existiert, aber Population fehlt
-            (sollte in Praxis nicht auftreten - signalisiert Inkonsistenz
-            zwischen swiss_zip._ZIP_TABLE und bfs._POPULATION_BY_MUNICIPALITY).
-        TaxDataNotCoveredError: Kanton hat keinen Steuer-Eintrag.
+        UnknownZipError: PLZ existiert nicht im Schweizer PLZ-Register.
+        TaxDataNotCoveredError: Kanton hat keinen Steuer-Eintrag (sollte
+            nicht auftreten - alle 26 Kantone sind abgedeckt).
     """
     location = lookup_zip(zip_code)  # raises UnknownZipError
     municipality = location["municipality"]
@@ -168,6 +171,8 @@ async def get_neighborhood_profile(zip_code: str) -> NeighborhoodProfile:
     canton_name = location["canton_name"]
 
     population = get_population(municipality)
+    data_quality: DataQuality = "full" if population is not None else "partial"
+
     vacancy = get_vacancy_rate_percent(canton_code)
     median_rent = get_median_rent_chf_per_m2(canton_code)
     avg_age = get_avg_age(canton_code)
@@ -199,6 +204,7 @@ async def get_neighborhood_profile(zip_code: str) -> NeighborhoodProfile:
                 median_income, NATIONAL_MEDIAN_HOUSEHOLD_INCOME_CHF
             ),
         ),
+        data_quality=data_quality,
         data_sources=[
             DEMOGRAPHICS_SOURCE_LABEL,
             TAX_DATA_SOURCE_LABEL,
@@ -208,6 +214,7 @@ async def get_neighborhood_profile(zip_code: str) -> NeighborhoodProfile:
 
 
 __all__ = [
+    "DataQuality",
     "DemographicsInfo",
     "InfrastructureInfo",
     "NeighborhoodProfile",

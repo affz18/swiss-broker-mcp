@@ -114,17 +114,22 @@ DEMOGRAPHICS_SOURCE_LABEL = (
 
 
 # Population pro Gemeinde (Stichdatum 2024, gerundet).
-# Schluessel ist der Gemeindename wie in swiss_zip._ZIP_TABLE.
+# Schluessel ist der offizielle Gemeindename - identisch mit der Form,
+# die aus swiss_zip.lookup_zip().municipality zurueckkommt.
+# Coverage: ca. 40 wichtige Gemeinden (Kantonshauptorte + Tourismus).
+# Bei unbekannten Gemeinden faellt get_population() auf None zurueck;
+# Tools mit Population-Bedarf (z.B. neighborhood) signalisieren das
+# transparent via data_quality="partial".
 _POPULATION_BY_MUNICIPALITY: dict[str, int] = {
     "Zuerich": 430_000,
     "Winterthur": 117_000,
     "Bern": 134_000,
     "Biel/Bienne": 56_000,
-    "Gstaad": 7_000,  # Saanen
+    "Saanen": 7_000,  # PLZ 3780 = Gemeinde Saanen (mit Ortsteil Gstaad)
     "Luzern": 83_000,
     "Basel": 173_000,
     "Liestal": 14_000,
-    "Genf": 203_000,
+    "Geneve": 203_000,
     "Lausanne": 142_000,
     "Montreux": 26_000,
     "Aigle": 11_000,
@@ -133,8 +138,8 @@ _POPULATION_BY_MUNICIPALITY: dict[str, int] = {
     "Sarnen": 10_300,
     "Stans": 8_500,
     "Schwyz": 15_500,
-    "Brunnen": 9_000,  # Ingenbohl
-    "Altdorf": 9_500,
+    "Ingenbohl": 9_000,  # PLZ 6440 = Gemeinde Ingenbohl (Ortsteil Brunnen)
+    "Altdorf (UR)": 9_500,
     "St. Gallen": 76_000,
     "Appenzell": 6_000,
     "Herisau": 16_000,
@@ -152,10 +157,10 @@ _POPULATION_BY_MUNICIPALITY: dict[str, int] = {
     "Davos": 11_000,
     "Sion": 35_000,
     "Zermatt": 5_500,
-    "Brig": 13_500,
-    "Freiburg": 38_000,
-    "Neuenburg": 33_000,
-    "Delsberg": 13_000,
+    "Brig-Glis": 13_500,  # fusionierte Gemeinde (frueher Brig)
+    "Fribourg": 38_000,
+    "Neuchatel": 33_000,
+    "Delemont": 13_000,
 }
 
 
@@ -209,10 +214,6 @@ class CantonNotCoveredError(ValueError):
     """Kanton ist nicht in der BFS-Tabelle hinterlegt."""
 
 
-class MunicipalityNotCoveredError(ValueError):
-    """Gemeinde ist nicht in der Population-Tabelle hinterlegt."""
-
-
 def get_base_price_per_m2(canton: str, property_type: PropertyType) -> int:
     """Mittlerer Verkaufspreis CHF/m2 fuer einen Kanton + Immobilientyp.
 
@@ -256,20 +257,15 @@ def covered_cantons() -> list[str]:
     return sorted(_BASE_PRICE_PER_M2_CHF.keys())
 
 
-def get_population(municipality: str) -> int:
+def get_population(municipality: str) -> int | None:
     """Bevoelkerungszahl fuer eine Gemeinde (Annaeherung 2024).
 
-    Raises:
-        MunicipalityNotCoveredError: wenn die Gemeinde nicht in der
-            Tabelle ist (typisch wenn die ZIP-Tabelle erweitert wird,
-            ohne hier nachzuziehen).
+    Returns:
+        Bevoelkerungszahl oder None wenn die Gemeinde nicht in der
+        kuratierten Tabelle ist. Aufrufer (z.B. neighborhood Tool)
+        signalisieren das via data_quality="partial".
     """
-    if municipality not in _POPULATION_BY_MUNICIPALITY:
-        raise MunicipalityNotCoveredError(
-            f"Gemeinde {municipality!r} hat keinen Population-Eintrag in der "
-            f"MVP-Tabelle. Bitte _POPULATION_BY_MUNICIPALITY in bfs.py ergaenzen."
-        )
-    return _POPULATION_BY_MUNICIPALITY[municipality]
+    return _POPULATION_BY_MUNICIPALITY.get(municipality)
 
 
 def get_median_rent_chf_per_m2(canton: str) -> float:

@@ -164,7 +164,15 @@ folgt sobald die offizielle MCP-Unterstuetzung dieser Clients stabil ist.
 - `get_expose_context` - Daten fuer Verkaufs-Exposes
 - `generate_market_report_data` - strukturierte Markt-Reports
 - Live-Anbindung an die BFS pxweb-API (statt embedded Annaeherungen)
-- Vollstaendige PLZ-Tabelle (~3000 Eintraege statt aktuell ~60)
+- Population-Tabelle auf alle ~2147 Schweizer Gemeinden ausweiten
+  (BFS STATPOP). Aktuell decken wir 100% der PLZ ab, aber nur ~40
+  Gemeinden haben Population-spezifische Daten - der Rest laeuft im
+  `data_quality: "partial"` Modus.
+
+### Bereits erledigt seit v0.1
+- ✓ Vollstaendige PLZ-Tabelle (alle 3362 Schweizer PLZ, alle 26
+  Kantone) als embedded JSON-Resource. Reproduzierbar via
+  `scripts/build_zip_table.py`.
 
 ### v0.3 (Idee)
 - OSM Overpass fuer `highway_access_km` und konkrete OeV-Verbindungen

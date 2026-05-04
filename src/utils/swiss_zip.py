@@ -1,16 +1,28 @@
 """Schweizer PLZ -> Kanton + Gemeinde Lookup.
 
-MVP-Strategie: embedded Tabelle der wichtigsten ~60 PLZ (Kantonshauptorte,
-groesste Staedte, Tourismus-Hotspots, dein Sarnen-Beispiel 6060). Schluesse
-ich aus, die nicht in der Tabelle sind, wirft `lookup_zip()` einen
-`UnknownZipError` mit hilfreicher Fehlermeldung fuer den LLM.
+Vollstaendige Tabelle aller Schweizer PLZ (~3362 Eintraege, 26 Kantone),
+embedded als JSON-Resource (`swiss_zip_data.json`, ~96 KB).
 
-TODO: Vor Public-Release auf vollstaendige PLZ-Tabelle wechseln. Quelle:
-opendata.swiss "Amtliches Gemeindeverzeichnis" oder Schweizer Post
-PLZ-Verzeichnis (~3000 Eintraege, ~150 KB JSON, problemlos in-memory).
+Datenquelle: `zauberware/postal-codes-json-xml-csv` (Mirror von
+geonames.org). Reproduzierbar via `scripts/build_zip_table.py`.
+
+Konventionen:
+- Gemeindenamen sind in der jeweiligen offiziellen Sprache der Gemeinde
+  ("Geneve", "Lausanne", "Locarno", "Sarnen") - so wie sie auf der
+  Gemeindewebseite stehen. Kantonsnamen sind in unserer CANTONS-Map
+  immer auf Deutsch (z.B. "GE" -> "Genf" auch wenn Stadt "Geneve").
+- ASCII-only: Umlaute werden zu ae/oe/ue transliteriert (Konvention
+  fuer den gesamten Codebase). Der LLM-Client kann beim Output an den
+  Endnutzer wieder Umlaute setzen.
+- Bei PLZ die mehrere Gemeinden ueberspannen (~221 von 3362) waehlt
+  der Build-Script die kanonische Gemeinde (Ortsname == Gemeindename).
 """
 
 from __future__ import annotations
+
+import json
+from importlib import resources
+from typing import Final
 
 from typing_extensions import TypedDict
 
@@ -25,10 +37,10 @@ class ZipEntry(TypedDict):
 
 
 class UnknownZipError(ValueError):
-    """PLZ ist nicht in unserer Tabelle hinterlegt."""
+    """PLZ ist nicht im Schweizer PLZ-Register."""
 
 
-CANTONS: dict[str, str] = {
+CANTONS: Final[dict[str, str]] = {
     "AG": "Aargau",
     "AI": "Appenzell Innerrhoden",
     "AR": "Appenzell Ausserrhoden",
@@ -58,79 +70,17 @@ CANTONS: dict[str, str] = {
 }
 
 
-# PLZ -> (Gemeinde, Kantons-Code).
-# Auswahl: Kantonshauptorte, groesste Staedte, Tourismus, Beispiel-PLZ aus
-# der Spec. KEIN Anspruch auf Vollstaendigkeit - siehe TODO oben.
-_ZIP_TABLE: dict[str, tuple[str, str]] = {
-    # Zuerich
-    "8000": ("Zuerich", "ZH"),
-    "8001": ("Zuerich", "ZH"),
-    "8002": ("Zuerich", "ZH"),
-    "8004": ("Zuerich", "ZH"),
-    "8050": ("Zuerich", "ZH"),
-    "8400": ("Winterthur", "ZH"),
-    # Bern
-    "3000": ("Bern", "BE"),
-    "3001": ("Bern", "BE"),
-    "3011": ("Bern", "BE"),
-    "2500": ("Biel/Bienne", "BE"),
-    "3780": ("Gstaad", "BE"),
-    # Luzern
-    "6000": ("Luzern", "LU"),
-    "6003": ("Luzern", "LU"),
-    "6004": ("Luzern", "LU"),
-    "6005": ("Luzern", "LU"),
-    # Basel
-    "4001": ("Basel", "BS"),
-    "4051": ("Basel", "BS"),
-    "4052": ("Basel", "BS"),
-    "4410": ("Liestal", "BL"),
-    # Genf
-    "1200": ("Genf", "GE"),
-    "1201": ("Genf", "GE"),
-    "1202": ("Genf", "GE"),
-    # Waadt
-    "1003": ("Lausanne", "VD"),
-    "1005": ("Lausanne", "VD"),
-    "1820": ("Montreux", "VD"),
-    "1860": ("Aigle", "VD"),
-    # Zug
-    "6300": ("Zug", "ZG"),
-    "6330": ("Cham", "ZG"),
-    # Innerschweiz
-    "6060": ("Sarnen", "OW"),
-    "6370": ("Stans", "NW"),
-    "6430": ("Schwyz", "SZ"),
-    "6440": ("Brunnen", "SZ"),
-    "6460": ("Altdorf", "UR"),
-    # Ostschweiz
-    "9000": ("St. Gallen", "SG"),
-    "9050": ("Appenzell", "AI"),
-    "9100": ("Herisau", "AR"),
-    "8200": ("Schaffhausen", "SH"),
-    "8500": ("Frauenfeld", "TG"),
-    "8750": ("Glarus", "GL"),
-    # Aargau / Solothurn
-    "5000": ("Aarau", "AG"),
-    "5400": ("Baden", "AG"),
-    "4500": ("Solothurn", "SO"),
-    # Tessin
-    "6500": ("Bellinzona", "TI"),
-    "6600": ("Locarno", "TI"),
-    "6900": ("Lugano", "TI"),
-    # Graubuenden
-    "7000": ("Chur", "GR"),
-    "7500": ("St. Moritz", "GR"),
-    "7270": ("Davos", "GR"),
-    # Wallis
-    "1950": ("Sion", "VS"),
-    "3920": ("Zermatt", "VS"),
-    "3900": ("Brig", "VS"),
-    # Freiburg / Neuenburg / Jura
-    "1700": ("Freiburg", "FR"),
-    "2000": ("Neuenburg", "NE"),
-    "2800": ("Delsberg", "JU"),
-}
+def _load_zip_table() -> dict[str, tuple[str, str]]:
+    """JSON-Resource laden und in dict konvertieren."""
+    raw_text = resources.files("src.utils").joinpath("swiss_zip_data.json").read_text(
+        encoding="utf-8"
+    )
+    raw: dict[str, list[str]] = json.loads(raw_text)
+    return {zip_code: (entry[0], entry[1]) for zip_code, entry in raw.items()}
+
+
+# Vollstaendige Tabelle aller Schweizer PLZ - geladen einmal beim Import.
+_ZIP_TABLE: Final[dict[str, tuple[str, str]]] = _load_zip_table()
 
 
 def lookup_zip(zip_code: str) -> ZipEntry:
@@ -144,17 +94,14 @@ def lookup_zip(zip_code: str) -> ZipEntry:
         canton_name (deutsch).
 
     Raises:
-        UnknownZipError: wenn die PLZ nicht in der Tabelle ist. Die
-            Fehlermeldung ist fuer LLM-Konsum optimiert (auf Deutsch,
-            mit Hinweis auf Workaround).
+        UnknownZipError: wenn die PLZ nicht im Schweizer PLZ-Register
+            existiert. Die Fehlermeldung ist fuer LLM-Konsum optimiert.
     """
     zip_code = zip_code.strip()
     if zip_code not in _ZIP_TABLE:
         raise UnknownZipError(
-            f"PLZ {zip_code!r} ist (noch) nicht in der Swiss-Broker-MCP "
-            f"Tabelle hinterlegt. Aktuell sind ~60 wichtige Schweizer PLZ "
-            f"abgedeckt (Kantonshauptorte, Grossstaedte, Tourismus). "
-            f"Bitte mit einer anderen PLZ in der gleichen Region versuchen."
+            f"PLZ {zip_code!r} existiert nicht im Schweizer PLZ-Register. "
+            f"Bitte die 4-stellige Postleitzahl pruefen."
         )
     municipality, canton = _ZIP_TABLE[zip_code]
     return ZipEntry(
@@ -166,5 +113,10 @@ def lookup_zip(zip_code: str) -> ZipEntry:
 
 
 def is_known_zip(zip_code: str) -> bool:
-    """True wenn die PLZ in der Tabelle existiert."""
+    """True wenn die PLZ im Schweizer PLZ-Register existiert."""
     return zip_code.strip() in _ZIP_TABLE
+
+
+def total_zip_count() -> int:
+    """Anzahl PLZ in der Tabelle - fuer Doku/Health-Output."""
+    return len(_ZIP_TABLE)

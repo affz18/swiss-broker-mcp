@@ -17,6 +17,31 @@ daten, die Antwort baut Claude (oder ChatGPT, oder Cursor) bei dir.
 
 ---
 
+## Was es ist – und was es nicht ist
+
+**Was es ist:** Ein Geschwindigkeits- und Qualitaets-Hebel fuer alle
+Schritte *nach* dem Lead-Kontakt:
+
+- Eingehende Anfragen in 30 Sekunden statt 30 Minuten qualifizieren
+  (Wert + Lage + Steuern + Demografie auf einen Blick).
+- Cold-Outreach an Eigentuemer mit datengestuetzten Talking Points
+  und Subject Lines - macht aus *kalter* Akquise *warme* Akquise.
+- Pre-Listing-Pitch und Live-Bewertung beim Eigentuemer am
+  Kuechentisch, mit Quellenangabe statt Bauchgefuehl.
+
+**Was es nicht ist:** Ein Lead-Generierungs-Tool. Kalte Leads
+entstehen aus Marketing, Empfehlungen, Online-Inseraten,
+Bauinseraten oder dem Maklernetzwerk - nicht aus einem Daten-
+Adapter im Chat. Wer dieses Tool als "Lead-Maschine" verkauft,
+macht ein Versprechen das es nicht halten kann.
+
+Der versteckte Hebel: Wer auf einen Lead in 2 Stunden statt 24
+Stunden zurueckruft - und das mit einer fundierten Bewertung im
+Gespaeck - **gewinnt mehr Mandate**. Genau das ist der Job dieses
+Tools.
+
+---
+
 ## Was es macht
 
 Drei MVP-Tools, alle auf oeffentlichen Schweizer Daten (BFS, ESTV).
@@ -147,6 +172,39 @@ folgt sobald die offizielle MCP-Unterstuetzung dieser Clients stabil ist.
 - i18n: Franzoesisch + Italienisch
 - Optionaler Auth-Layer (API-Key) fuer Premium-Features
 - Adapter fuer kommerzielle Datenquellen (IAZI / Wuest), sofern Lizenz
+- **Bauanzeigen-Monitor** - kantonale Amtsblaetter und
+  bauinserate.ch crawlen, Tool `get_recent_building_permits(zip,
+  radius_km)` liefert "in deiner Region wurden N Bauinserate in den
+  letzten 30 Tagen veroeffentlicht". Legal, systematisch, schwach
+  lead-gen-relevant: Bauinserate sind oeffentliche Information und
+  Indikator fuer Eigentuemer-Aktivitaet (Sanierung, Anbau, Umbau =
+  oft Vorlaeufer eines Verkaufs in 1-3 Jahren).
+
+### v1.0: RE/MAX-Pro Tier (in Vorbereitung)
+
+Ein zweites, kostenpflichtiges Tier fuer das RE/MAX-Schweiz-Netzwerk.
+Gleicher Server, gleiche Tools - **plus** zusaetzliche Tools mit
+RE/MAX-internen Daten, hinter API-Key. Voraussetzung: Datenfreigabe
+durch RE/MAX Schweiz (in Vorbereitung).
+
+Geplante Tools:
+
+- `find_comparable_sales(zip, property_type, size_range, time_window)` -
+  echte abgeschlossene RE/MAX-Schweiz-Verkaufstransaktionen als
+  Comparables. Ersetzt die regionale BFS-Annaeherung durch tatsaechliche
+  Verkaufspreise -> dramatisch hoehere Bewertungs-Konfidenz.
+- `get_remax_off_market_inventory(zip, radius_km, criteria)` - Off-
+  Market-Pipeline der RE/MAX-Buero im Umkreis. Differenziator gegenueber
+  jedem freien Makler.
+- `push_lead_to_maximo(...)` - Lead direkt aus dem Chat ins
+  RE/MAX-Maximo-CRM, mit angehaengtem Bewertungs-PDF.
+- `get_remax_market_kpis(canton)` - aggregierte interne Statistiken
+  (Verkaufsdauer, Preisreduktionen, Angebot-zu-Verkauf-Ratio).
+
+Strikte Trennung: **Public Tier bleibt frei und Open-Source**. Der
+Pro-Tier-Code ist ein separates Modul (`src/tools/remax_pro/`),
+nur aktiv wenn ein gueltiger RE/MAX-API-Key vorhanden ist und der
+Server gegen die internen RE/MAX-Endpoints konfiguriert ist.
 
 ---
 
